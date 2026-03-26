@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pong</title>
+<style>
+  * { margin: 0; padding: 0; }
+  body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; }
+  canvas { border: 2px solid #fff; }
+</style>
+</head>
+<body>
+<canvas id="game" width="800" height="500"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const WINNING_SCORE = 7;
+const PADDLE_SPEED = 5;
+const BALL_SPEED = 4;
+const PADDLE_W = 12;
+const PADDLE_H = 80;
+
+const state = {
+  ball: { x: 400, y: 250, dx: BALL_SPEED, dy: BALL_SPEED },
+  left: { y: 210, score: 0 },
+  right: { y: 210, score: 0 },
+  keys: {},
+  paused: false,
+  winner: null
+};
+
+document.addEventListener('keydown', e => state.keys[e.key] = true);
+document.addEventListener('keyup', e => state.keys[e.key] = false);
+
+function resetBall(direction) {
+  state.ball.x = 400;
+  state.ball.y = 250;
+  const angle = (Math.random() * Math.PI / 3) - Math.PI / 6;
+  state.ball.dx = direction * BALL_SPEED * Math.cos(angle);
+  state.ball.dy = BALL_SPEED * Math.sin(angle);
+}
+
+function update() {
+  if (state.winner) return;
+
+  const { ball, left, right, keys } = state;
+
+  // Move paddles
+  if (keys['w'] && left.y > 0) left.y -= PADDLE_SPEED;
+  if (keys['s'] && left.y < canvas.height - PADDLE_H) left.y += PADDLE_SPEED;
+  if (keys['ArrowUp'] && right.y > 0) right.y -= PADDLE_SPEED;
+  if (keys['ArrowDown'] && right.y < canvas.height - PADDLE_H) right.y += PADDLE_SPEED;
+
+  // Move ball
+  ball.x += ball.dx;
+  ball.y += ball.dy;
+
+  // Top/bottom bounce
+  if (ball.y <= 0 || ball.y >= canvas.height) ball.dy *= -1;
+
+  // Left paddle collision
+  if (ball.x <= PADDLE_W + 20 && ball.y >= left.y && ball.y <= left.y + PADDLE_H && ball.dx < 0) {
+    ball.dx = Math.abs(ball.dx) * 1.05;
+    ball.dy += (ball.y - (left.y + PADDLE_H / 2)) * 0.1;
+  }
+
+  // Right paddle collision
+  if (ball.x >= canvas.width - PADDLE_W - 20 && ball.y >= right.y && ball.y <= right.y + PADDLE_H && ball.dx > 0) {
+    ball.dx = -Math.abs(ball.dx) * 1.05;
+    ball.dy += (ball.y - (right.y + PADDLE_H / 2)) * 0.1;
+  }
+
+  // Scoring
+  if (ball.x < 0) {
+    right.score++;
+    if (right.score >= WINNING_SCORE) { state.winner = 'Player 2'; return; }
+    resetBall(1);
+  }
+  if (ball.x > canvas.width) {
+    left.score++;
+    if (left.score >= WINNING_SCORE) { state.winner = 'Player 1'; return; }
+    resetBall(-1);
+  }
+}
+
+function draw() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Center line
+  ctx.setLineDash([10, 10]);
+  ctx.strokeStyle = '#333';
+  ctx.beginPath();
+  ctx.moveTo(canvas.width / 2, 0);
+  ctx.lineTo(canvas.width / 2, canvas.height);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Paddles
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(20, state.left.y, PADDLE_W, PADDLE_H);
+  ctx.fillRect(canvas.width - 20 - PADDLE_W, state.right.y, PADDLE_W, PADDLE_H);
+
+  // Ball
+  ctx.beginPath();
+  ctx.arc(state.ball.x, state.ball.y, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Scores
+  ctx.font = '48px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(state.left.score, canvas.width / 4, 60);
+  ctx.fillText(state.right.score, 3 * canvas.width / 4, 60);
+
+  // Controls hint
+  ctx.font = '14px monospace';
+  ctx.fillStyle = '#555';
+  ctx.fillText('W/S', canvas.width / 4, canvas.height - 15);
+  ctx.fillText('↑/↓', 3 * canvas.width / 4, canvas.height - 15);
+
+  // Winner
+  if (state.winner) {
+    ctx.fillStyle = '#fff';
+    ctx.font = '36px monospace';
+    ctx.fillText(state.winner + ' Wins!', canvas.width / 2, canvas.height / 2 - 20);
+    ctx.font = '18px monospace';
+    ctx.fillText('Press Space to restart', canvas.width / 2, canvas.height / 2 + 20);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && state.winner) {
+    state.left.score = 0;
+    state.right.score = 0;
+    state.winner = null;
+    resetBall(1);
+  }
+});
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resetBall(1);
+loop();
+</script>
+</body>
+</html>
